@@ -322,3 +322,33 @@ Data e modifikimit: {modified_time}"""
                 self.logger.info(f"FAILED LOGIN - {addr} - Wrong password")
         except Exception as e:
             self.send_response(addr, f"ERROR login: {e}")
+
+ def send_response(self, addr, message):
+        try:
+            data = message.encode('utf-8')
+            self.stats['total_bytes_sent'] += len(data)
+            self.socket.sendto(data, addr)
+        except Exception as e:
+            print(f"Gabim në dërgim për {addr}: {e}")
+
+    def send_stats(self, addr):
+        try:
+            text = "STATISTIKA SERVERI\n"
+            text += f"Lidhje aktive: {self.active_connections}\n"
+            text += f"Total mesazhe: {self.stats['total_messages_received']}\n"
+            text += f"Total bytes pranuar: {self.stats['total_bytes_received']}\n"
+            text += f"Total bytes dërguar: {self.stats['total_bytes_sent']}\n\n"
+            text += "Klientët aktivë:\n"
+
+            for client_addr, info in self.clients.items():
+                client_stat = self.stats['client_stats'][client_addr]
+                status = "ADMIN" if info['is_admin'] else "USER"
+                text += f"- {client_addr} ({status}): {client_stat['messages_received']} mesazhe, {client_stat['bytes_received']} bytes\n"
+
+            # Regjistro statistikat në file
+            self.logger.info(
+                f"STATS - Connections: {self.active_connections}, Messages: {self.stats['total_messages_received']}, Bytes Received: {self.stats['total_bytes_received']}, Bytes Sent: {self.stats['total_bytes_sent']}")
+
+            self.send_response(addr, text)
+        except Exception as e:
+            self.send_response(addr, f"ERROR stats: {e}")
