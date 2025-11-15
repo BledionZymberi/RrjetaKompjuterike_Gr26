@@ -267,5 +267,16 @@ class UDPServer:
                 except Exception as e:
                     self.send_response(addr, f"ERROR në delete: {e}")
 
+    def search_files(self, addr, keyword):
+        try:
+            results = []
+            for file in os.listdir(FILES_DIR):
+                if keyword.lower() in file.lower():
+                    results.append(file)
 
-
+            if results:
+                self.send_response(addr, "\n".join(results))
+            else:
+                self.send_response(addr, "Asgjë nuk u gjet")
+        except Exception as e:
+            self.send_response(addr, f"ERROR search: {e}")
