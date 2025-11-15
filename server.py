@@ -280,3 +280,45 @@ class UDPServer:
                 self.send_response(addr, "Asgjë nuk u gjet")
         except Exception as e:
             self.send_response(addr, f"ERROR search: {e}")
+
+    def file_info(self, addr, filename):
+        try:
+            # Sigurohu që file është brenda FILES_DIR
+            filepath = os.path.join(FILES_DIR, filename)
+
+            if not os.path.exists(filepath):
+                self.send_response(addr, "ERROR: File nuk ekziston")
+                return
+
+            stat = os.stat(filepath)
+            created_time = datetime.fromtimestamp(stat.st_ctime).strftime('%Y-%m-%d %H:%M:%S')
+            modified_time = datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
+
+            info = f"""File: {filename}
+Madhësia: {stat.st_size} bytes
+Data e krijimit: {created_time}
+Data e modifikimit: {modified_time}"""
+
+            self.send_response(addr, info)
+        except Exception as e:
+            self.send_response(addr, f"ERROR info: {e}")
+
+    def set_admin(self, addr, message):
+        try:
+            parts = message.split(':')
+            if len(parts) < 3:
+                self.send_response(addr, "ERROR: Format i gabuar i login")
+                return
+
+            if parts[2] == "admin123":
+                self.clients[addr]['is_admin'] = True
+                self.clients[addr]['username'] = parts[1]
+                self.admin_client = addr
+                self.send_response(addr, "SUCCESS: Admin login")
+                print(f"{addr} u bë administrator")
+                self.logger.info(f"ADMIN LOGIN - {addr} as {parts[1]}")
+            else:
+                self.send_response(addr, "ERROR: Fjalëkalim gabim")
+                self.logger.info(f"FAILED LOGIN - {addr} - Wrong password")
+        except Exception as e:
+            self.send_response(addr, f"ERROR login: {e}")
