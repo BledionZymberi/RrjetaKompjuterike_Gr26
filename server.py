@@ -128,144 +128,144 @@ class UDPServer:
         else:
             self.send_response(addr, "Server: Mesazhi u pranua")
 
-            def handle_command(self, command, addr):
-                parts = command.split()
-                if not parts:
-                    self.send_response(addr, "ERROR: Komandë e zbrazët")
+    def handle_command(self, command, addr):
+        parts = command.split()
+        if not parts:
+            self.send_response(addr, "ERROR: Komandë e zbrazët")
+            return
+
+        cmd = parts[0].lower()
+
+        # Komandat e lejuara për përdoruesit normal (vetëm lexim)
+        allowed_user_cmds = ['/read', '/search', '/info', '/list']
+
+        if not self.clients[addr]['is_admin'] and cmd not in allowed_user_cmds:
+            self.send_response(addr, "ERROR: Nuk ke leje për këtë komandë")
+            return
+
+        try:
+            if cmd == '/list':
+                directory = parts[1] if len(parts) > 1 else FILES_DIR
+                self.list_files(addr, directory)
+            elif cmd == '/read':
+                if len(parts) < 2:
+                    self.send_response(addr, "ERROR: Përdorimi: /read <filename>")
                     return
-
-                cmd = parts[0].lower()
-
-                # Komandat e lejuara për përdoruesit normal (vetëm lexim)
-                allowed_user_cmds = ['/read', '/search', '/info', '/list']
-
-                if not self.clients[addr]['is_admin'] and cmd not in allowed_user_cmds:
-                    self.send_response(addr, "ERROR: Nuk ke leje për këtë komandë")
+                self.read_file(addr, parts[1])
+            elif cmd == '/upload':
+                if len(parts) < 2:
+                    self.send_response(addr, "ERROR: Përdorimi: /upload <filename>")
                     return
+                self.upload_file(addr, parts[1])
+            elif cmd == '/download':
+                if len(parts) < 2:
+                    self.send_response(addr, "ERROR: Përdorimi: /download <filename>")
+                    return
+                self.download_file(addr, parts[1])
+            elif cmd == '/delete':
+                if len(parts) < 2:
+                    self.send_response(addr, "ERROR: Përdorimi: /delete <filename>")
+                    return
+                self.delete_file(addr, parts[1])
+            elif cmd == '/search':
+                if len(parts) < 2:
+                    self.send_response(addr, "ERROR: Përdorimi: /search <keyword>")
+                    return
+                self.search_files(addr, parts[1])
+            elif cmd == '/info':
+                if len(parts) < 2:
+                    self.send_response(addr, "ERROR: Përdorimi: /info <filename>")
+                    return
+                self.file_info(addr, parts[1])
+            else:
+                self.send_response(addr, "ERROR: Komandë e panjohur")
 
-                try:
-                    if cmd == '/list':
-                        directory = parts[1] if len(parts) > 1 else FILES_DIR
-                        self.list_files(addr, directory)
-                    elif cmd == '/read':
-                        if len(parts) < 2:
-                            self.send_response(addr, "ERROR: Përdorimi: /read <filename>")
-                            return
-                        self.read_file(addr, parts[1])
-                    elif cmd == '/upload':
-                        if len(parts) < 2:
-                            self.send_response(addr, "ERROR: Përdorimi: /upload <filename>")
-                            return
-                        self.upload_file(addr, parts[1])
-                    elif cmd == '/download':
-                        if len(parts) < 2:
-                            self.send_response(addr, "ERROR: Përdorimi: /download <filename>")
-                            return
-                        self.download_file(addr, parts[1])
-                    elif cmd == '/delete':
-                        if len(parts) < 2:
-                            self.send_response(addr, "ERROR: Përdorimi: /delete <filename>")
-                            return
-                        self.delete_file(addr, parts[1])
-                    elif cmd == '/search':
-                        if len(parts) < 2:
-                            self.send_response(addr, "ERROR: Përdorimi: /search <keyword>")
-                            return
-                        self.search_files(addr, parts[1])
-                    elif cmd == '/info':
-                        if len(parts) < 2:
-                            self.send_response(addr, "ERROR: Përdorimi: /info <filename>")
-                            return
-                        self.file_info(addr, parts[1])
-                    else:
-                        self.send_response(addr, "ERROR: Komandë e panjohur")
+        except Exception as e:
+            self.send_response(addr, f"ERROR: {e}")
 
-                except Exception as e:
-                    self.send_response(addr, f"ERROR: {e}")
+    def handle_upload_content(self, message, addr):
+        try:
+            parts = message.split(':', 2)
+            if len(parts) < 3:
+                self.send_response(addr, "ERROR: Format i gabuar i upload")
+                return
 
-            def handle_upload_content(self, message, addr):
-                try:
-                    parts = message.split(':', 2)
-                    if len(parts) < 3:
-                        self.send_response(addr, "ERROR: Format i gabuar i upload")
-                        return
+            filename = parts[1]
+            content = parts[2]
 
-                    filename = parts[1]
-                    content = parts[2]
+            # Ruaj file në folderin Files
+            filepath = os.path.join(FILES_DIR, filename)
 
-                    # Ruaj file në folderin Files
-                    filepath = os.path.join(FILES_DIR, filename)
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(content)
 
-                    with open(filepath, 'w', encoding='utf-8') as f:
-                        f.write(content)
+            self.send_response(addr, f"OK: Upload sukses për {filename}")
+            self.logger.info(f"FILE UPLOAD - {addr} uploaded {filename}")
+        except Exception as e:
+            self.send_response(addr, f"ERROR upload: {e}")
 
-                    self.send_response(addr, f"OK: Upload sukses për {filename}")
-                    self.logger.info(f"FILE UPLOAD - {addr} uploaded {filename}")
-                except Exception as e:
-                    self.send_response(addr, f"ERROR upload: {e}")
+    def list_files(self, addr, directory):
+        try:
+            # Sigurohu që directory është brenda FILES_DIR për siguri
+            if not directory.startswith(FILES_DIR):
+                directory = FILES_DIR
 
-            def list_files(self, addr, directory):
-                try:
-                    # Sigurohu që directory është brenda FILES_DIR për siguri
-                    if not directory.startswith(FILES_DIR):
-                        directory = FILES_DIR
+            files = os.listdir(directory)
+            output = "\n".join(files) if files else "(Bosh)"
+            self.send_response(addr, output)
+        except Exception as e:
+            self.send_response(addr, f"ERROR list: {e}")
 
-                    files = os.listdir(directory)
-                    output = "\n".join(files) if files else "(Bosh)"
-                    self.send_response(addr, output)
-                except Exception as e:
-                    self.send_response(addr, f"ERROR list: {e}")
+    def read_file(self, addr, filename):
+        try:
+            # Sigurohu që file është brenda FILES_DIR
+            filepath = os.path.join(FILES_DIR, filename)
 
-            def read_file(self, addr, filename):
-                try:
-                    # Sigurohu që file është brenda FILES_DIR
-                    filepath = os.path.join(FILES_DIR, filename)
+            if not os.path.exists(filepath):
+                self.send_response(addr, "ERROR: File nuk ekziston")
+                return
 
-                    if not os.path.exists(filepath):
-                        self.send_response(addr, "ERROR: File nuk ekziston")
-                        return
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        content = f.read()
+            self.send_response(addr, content)
+        except Exception as e:
+            self.send_response(addr, f"ERROR read: {e}")
 
-                    self.send_response(addr, content)
-                except Exception as e:
-                    self.send_response(addr, f"ERROR read: {e}")
+    def upload_file(self, addr, filename):
+        self.send_response(addr, "READY_FOR_UPLOAD")
 
-            def upload_file(self, addr, filename):
-                self.send_response(addr, "READY_FOR_UPLOAD")
+    def download_file(self, addr, filename):
+        try:
+            # Sigurohu që file është brenda FILES_DIR
+            filepath = os.path.join(FILES_DIR, filename)
 
-            def download_file(self, addr, filename):
-                try:
-                    # Sigurohu që file është brenda FILES_DIR
-                    filepath = os.path.join(FILES_DIR, filename)
+            if not os.path.exists(filepath):
+                self.send_response(addr, "ERROR: File nuk ekziston")
+                return
 
-                    if not os.path.exists(filepath):
-                        self.send_response(addr, "ERROR: File nuk ekziston")
-                        return
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
 
-                    with open(filepath, 'r', encoding='utf-8') as f:
-                        content = f.read()
+            self.send_response(addr, f"DOWNLOAD:{filename}:{content}")
+            self.logger.info(f"FILE DOWNLOAD - {addr} downloaded {filename}")
+        except Exception as e:
+            self.send_response(addr, f"ERROR download: {e}")
 
-                    self.send_response(addr, f"DOWNLOAD:{filename}:{content}")
-                    self.logger.info(f"FILE DOWNLOAD - {addr} downloaded {filename}")
-                except Exception as e:
-                    self.send_response(addr, f"ERROR download: {e}")
+    def delete_file(self, addr, filename):
+        try:
+            # Sigurohu që file është brenda FILES_DIR
+            filepath = os.path.join(FILES_DIR, filename)
 
-            def delete_file(self, addr, filename):
-                try:
-                    # Sigurohu që file është brenda FILES_DIR
-                    filepath = os.path.join(FILES_DIR, filename)
+            if not os.path.exists(filepath):
+                self.send_response(addr, "ERROR: File nuk ekziston")
+                return
 
-                    if not os.path.exists(filepath):
-                        self.send_response(addr, "ERROR: File nuk ekziston")
-                        return
-
-                    os.remove(filepath)
-                    self.send_response(addr, "OK: File u fshi")
-                    self.logger.info(f"FILE DELETE - {addr} deleted {filename}")
-                except Exception as e:
-                    self.send_response(addr, f"ERROR në delete: {e}")
+            os.remove(filepath)
+            self.send_response(addr, "OK: File u fshi")
+            self.logger.info(f"FILE DELETE - {addr} deleted {filename}")
+        except Exception as e:
+            self.send_response(addr, f"ERROR në delete: {e}")
 
     def search_files(self, addr, keyword):
         try:
@@ -323,7 +323,7 @@ Data e modifikimit: {modified_time}"""
         except Exception as e:
             self.send_response(addr, f"ERROR login: {e}")
 
- def send_response(self, addr, message):
+    def send_response(self, addr, message):
         try:
             data = message.encode('utf-8')
             self.stats['total_bytes_sent'] += len(data)
