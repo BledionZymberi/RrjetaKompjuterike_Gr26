@@ -352,3 +352,56 @@ Data e modifikimit: {modified_time}"""
             self.send_response(addr, text)
         except Exception as e:
             self.send_response(addr, f"ERROR stats: {e}")
+
+    def monitor_connections(self):
+        while self.running:
+            try:
+                now = time.time()
+                disconnected = []
+
+                for addr in list(self.last_activity.keys()):
+                    if now - self.last_activity[addr] > self.timeout:
+                        print(f"Klienti {addr} u shkëput (timeout)")
+                        self.logger.info(f"CLIENT TIMEOUT - {addr}")
+                        disconnected.append(addr)
+
+                for addr in disconnected:
+                    del self.last_activity[addr]
+                    if addr in self.clients:
+                        del self.clients[addr]
+                    self.active_connections = max(0, self.active_connections - 1)
+
+                time.sleep(5)
+            except Exception as e:
+                print(f"Gabim në monitorimin e lidhjeve: {e}")
+
+    def handle_commands(self):
+        while self.running:
+            try:
+                cmd = input().strip()
+                if cmd == 'STOP':
+                    self.running = False
+                    print("Serveri po ndalet...")
+                    self.logger.info("SERVER STOPPED BY COMMAND")
+                    break
+                elif cmd == 'STATS':
+                    # Shfaq stats në terminalin e serverit
+                    print(f"\nSTATISTIKA SERVERI (Terminal)")
+                    print(f"Lidhje aktive: {self.active_connections}")
+                    print(f"Total mesazhe: {self.stats['total_messages_received']}")
+                    print(f"Total bytes pranuar: {self.stats['total_bytes_received']}")
+                    print(f"Total bytes dërguar: {self.stats['total_bytes_sent']}")
+                    print(f"Klientët: {list(self.clients.keys())}")
+
+                    # Log në file gjithashtu
+                    self.logger.info(
+                        f"MANUAL STATS - Connections: {self.active_connections}, Messages: {self.stats['total_messages_received']}")
+                else:
+                    print("Komandat e disponueshme: STOP, STATS")
+            except Exception as e:
+                print(f"Gabim në input: {e}")
+
+
+if __name__ == "__main__":
+    server = UDPServer(host='0.0.0.0', port=5678, max_connections=5)
+    server.start()
