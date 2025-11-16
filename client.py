@@ -176,3 +176,26 @@ class UDPClient:
 
         except Exception as e:
             print(f"Gabim në upload: {e}")
+
+            def handle_download(self, response_text):
+                try:
+                    parts = response_text.split(':', 2)
+                    if len(parts) == 3:
+                        original_filename = parts[1]
+                        content = parts[2]
+
+                        # Krijo emrin e ri për file-in e shkarkuar
+                        downloaded_filename = f"downloaded_{original_filename}"
+
+                        # Ruaj në folderin Files
+                        save_path = os.path.join(FILES_DIR, downloaded_filename)
+
+                        with open(save_path, 'w', encoding='utf-8') as f:
+                            f.write(content)
+
+                        print(f"File-i u shkarkua si: {save_path}")
+                    else:
+                        print("Format i gabuar i përgjigjes së download")
+
+                except Exception as e:
+                    print(f"Gabim në download: {e}")

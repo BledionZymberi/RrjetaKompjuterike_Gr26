@@ -2,7 +2,6 @@ import socket
 import threading
 import time
 import os
-import json
 from datetime import datetime
 from collections import defaultdict
 import logging
