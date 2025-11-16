@@ -151,3 +151,28 @@ class UDPClient:
             print("Serveri nuk u përgjigj brenda kohës së caktuar")
         except Exception as e:
             print(f"Gabim në dërgim: {e}")
+
+    def handle_upload(self, full_path):
+        try:
+            if not os.path.exists(full_path):
+                print(f"File-i {full_path} nuk ekziston lokalish")
+                return
+
+            filename = self.extract_filename(full_path)
+
+            # Përdor vetëm UTF-8 encoding
+            try:
+                with open(full_path, 'r', encoding='utf-8') as f:
+                    content = f.read()
+            except UnicodeDecodeError:
+                print(f"File-i {filename} nuk mund të lexohet si UTF-8")
+                return
+
+            upload_msg = f"UPLOAD:{filename}:{content}"
+            self.socket.sendto(upload_msg.encode('utf-8'), (self.server_host, self.server_port))
+
+            response, addr = self.socket.recvfrom(1024)
+            print(f"Përgjigja: {response.decode('utf-8')}")
+
+        except Exception as e:
+            print(f"Gabim në upload: {e}")
