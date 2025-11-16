@@ -199,3 +199,111 @@ class UDPClient:
 
                 except Exception as e:
                     print(f"Gabim në download: {e}")
+
+    def show_commands_menu(self):
+        """Shfaq menunë e komandave bazuar në privilegjet e përdoruesit"""
+        if self.is_admin:
+            print(f"""
+MODI INTERAKTIV - UDP Client (ADMIN)
+====================================
+
+Komandat e disponueshme:
+/list [directory]    - Listo file-t në server
+/read <file>         - Lexo përmbajtjen e file-it nga serveri
+/upload <file>       - Ngarko file në server
+/download <file>     - Shkarko file nga serveri
+/delete <file>       - Fshi file në server
+/search <keyword>    - Kërko file në server
+/info <file>         - Shfaq info të hollësishme për file
+STATS                - Shfaq statistikat e serverit
+Ping                 - Testo lidhjen me serverin
+exit                 - Dil nga aplikacioni
+            """)
+        else:
+            print(f"""
+MODI INTERAKTIV - UDP Client (USER)
+===================================
+
+Komandat e disponueshme:
+/list [directory]    - Listo file-t në server
+/read <file>         - Lexo përmbajtjen e file-it nga serveri
+/search <keyword>    - Kërko file në server
+/info <file>         - Shfaq info të hollësishme për file
+STATS                - Shfaq statistikat e serverit
+Ping                 - Testo lidhjen me serverin
+exit                 - Dil nga aplikacioni
+            """)
+
+    def start_interactive(self):
+        # Shfaq menunë e komandave në fillim
+        self.show_commands_menu()
+
+        while self.running:
+            try:
+                prompt = f"\n{self.username}@server> "
+                message = input(prompt).strip()
+
+                if message.lower() == 'exit':
+                    self.running = False
+                    print("Duke u shkëputur...")
+                    break
+                elif message.lower() == 'help':
+                    # Shfaq përsëri menunë e komandave kur përdoruesi shkruan 'help'
+                    self.show_commands_menu()
+                    continue
+                elif message:
+                    # Kontrollo nëse user i thjeshtë po përpiqet të ekzekutojë komandë të ndaluar
+                    if not self.is_admin:
+                        forbidden_commands = ['/upload', '/download', '/delete']
+                        if any(message.startswith(cmd) for cmd in forbidden_commands):
+                            print("Gabim: Nuk ke leje për këtë komandë. Vetëm administratorët mund të:")
+                            print("   - Ngarkojnë file (/upload)")
+                            print("   - Shkarkojnë file (/download)")
+                            print("   - Fshijnë file (/delete)")
+                            continue
+
+                    self.send_message(message)
+
+            except KeyboardInterrupt:
+                print("\nDuke u shkëputur...")
+                break
+            except Exception as e:
+                print(f"Gabim: {e}")
+
+
+def main():
+    print("UDP File Client")
+    print("===============")
+
+    server_host = input("IP e serverit [127.0.0.1]: ").strip() or "127.0.0.1"
+    server_port = input("Porti i serverit [5678]: ").strip() or "5678"
+
+    try:
+        server_port = int(server_port)
+    except:
+        print("Porti duhet të jetë numër!")
+        return
+
+    client = UDPClient(server_host, server_port)
+
+    if not client.connect():
+        return
+
+    # Admin login me kontroll të passwordit
+    login_choice = input("Dëshironi të logoheni si administrator? (y/n): ").strip().lower()
+    if login_choice == 'y':
+        username = input("Emri i përdoruesit: ").strip()
+        password = input("Password: ").strip()
+
+        if client.login_as_admin(username, password):
+            print("Do të keni qasje të plotë si administrator")
+        else:
+            print("Do të keni vetëm leje të leximit si user i thjeshtë")
+    else:
+        print("Do të keni vetëm leje të leximit si user i thjeshtë")
+
+    client.start_interactive()
+
+
+if __name__ == "__main__":
+    main()
