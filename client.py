@@ -73,3 +73,81 @@ class UDPClient:
         except Exception as e:
             print(f"Gabim në login: {e}")
             return False
+
+    def send_message(self, message):
+        try:
+            start_time = time.time()
+
+            # Trajto komandën upload
+            if message.startswith("/upload "):
+                parts = message.split(" ", 1)
+                if len(parts) < 2:
+                    print("Përdorimi: /upload <path-to-file>")
+                    return
+
+                full_path = parts[1]
+                filename = self.extract_filename(full_path)
+
+                # Dërgo kërkesën për upload
+                self.socket.sendto(f"/upload {filename}".encode('utf-8'),
+                                   (self.server_host, self.server_port))
+
+                # Prit për READY_FOR_UPLOAD
+                response, addr = self.socket.recvfrom(4096)
+                response_text = response.decode('utf-8')
+
+                if response_text == "READY_FOR_UPLOAD":
+                    self.handle_upload(full_path)
+                else:
+                    print(f"Përgjigja: {response_text}")
+
+                return
+
+            # Trajto komandën download
+            if message.startswith("/download "):
+                parts = message.split(" ", 1)
+                if len(parts) < 2:
+                    print("Përdorimi: /download <filename>")
+                    return
+
+                # Për download, dërgojmë vetëm emrin e file, jo path-in e plotë
+                filename = self.extract_filename(parts[1])
+                self.socket.sendto(f"/download {filename}".encode('utf-8'),
+                                   (self.server_host, self.server_port))
+
+                # Prit për përgjigje
+                response, addr = self.socket.recvfrom(65536)
+                response_time = time.time() - start_time
+                response_text = response.decode('utf-8')
+
+                if response_text.startswith("DOWNLOAD:"):
+                    self.handle_download(response_text)
+                else:
+                    print(f"Koha e përgjigjes: {response_time:.3f}s")
+                    print(f"Përgjigja: {response_text}")
+
+                return
+
+            # Trajto komandat e tjera normalisht
+            self.socket.sendto(message.encode('utf-8'), (self.server_host, self.server_port))
+
+            # Vendos timeout bazuar në privilegjet e përdoruesit (admin merr përgjigje më të shpejtë)
+            timeout = 2.0 if self.is_admin else 5.0
+            self.socket.settimeout(timeout)
+
+            response, addr = self.socket.recvfrom(65536)
+            response_time = time.time() - start_time
+            response_text = response.decode('utf-8')
+
+            # Trajto download për raste të tjera
+            if response_text.startswith("DOWNLOAD:"):
+                self.handle_download(response_text)
+                return
+
+            print(f"Koha e përgjigjes: {response_time:.3f}s")
+            print(f"Përgjigja: {response_text}")
+
+        except socket.timeout:
+            print("Serveri nuk u përgjigj brenda kohës së caktuar")
+        except Exception as e:
+            print(f"Gabim në dërgim: {e}")
